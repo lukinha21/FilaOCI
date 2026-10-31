@@ -80,3 +80,6 @@ defina `ENVIAR_EMAIL=true` e as variáveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`
 
 Não envie nem publique a pasta `.oci`, os arquivos `.pem` e o `.env` (use `.gitignore`).
 Quem tiver a chave privada consegue acessar a conta da OCI.
+
+## DOCUMENTAÇÃO
+LINK: https://pdfhost.io/v/VdcbeKhXmz_FilaOCI
