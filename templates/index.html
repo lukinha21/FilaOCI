@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fila OCI</title>
+  <style>
+    :root {
+      --blue-50:  #eff6ff;
+      --blue-100: #dbeafe;
+      --blue-300: #93c5fd;
+      --blue-500: #3b82f6;
+      --blue-600: #2563eb;
+      --blue-700: #1d4ed8;
+      --ink:      #0f1f3d;
+      --muted:    #5b6b86;
+      --glass:    rgba(255, 255, 255, 0.55);
+      --glass-strong: rgba(255, 255, 255, 0.78);
+      --border:   rgba(255, 255, 255, 0.85);
+      --shadow:   0 10px 40px rgba(37, 99, 235, 0.12), 0 2px 8px rgba(15, 31, 61, 0.05);
+      --radius:   22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(160deg, #f7faff 0%, #e6efff 55%, #f4f8ff 100%);
+      background-attachment: fixed;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Manchas de cor desfocadas ao fundo: é o que dá o efeito "vidro" nos cards */
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(70px);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::before {
+      width: 460px; height: 460px;
+      top: -140px; left: -120px;
+      background: radial-gradient(circle, rgba(59,130,246,.55), rgba(59,130,246,0) 70%);
+    }
+    body::after {
+      width: 520px; height: 520px;
+      bottom: -180px; right: -140px;
+      background: radial-gradient(circle, rgba(96,165,250,.55), rgba(147,197,253,0) 70%);
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 48px 20px 64px;
+    }
+
+    /* ---------- Cabeçalho ---------- */
+    header { text-align: center; margin-bottom: 36px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+      color: var(--blue-700);
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .pill i {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--blue-500);
+      box-shadow: 0 0 0 4px rgba(59,130,246,.2);
+    }
+    h1 {
+      margin: 16px 0 8px;
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    h1 span {
+      background: linear-gradient(90deg, var(--blue-600), var(--blue-500));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+    }
+    header p { margin: 0; color: var(--muted); font-size: 16px; }
+
+    /* ---------- Layout ---------- */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+
+    /* ---------- Card de vidro ---------- */
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      padding: 28px;
+    }
+    .card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+    .icon {
+      width: 44px; height: 44px; flex: none;
+      display: grid; place-items: center;
+      border-radius: 14px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+      box-shadow: 0 8px 18px rgba(37, 99, 235, .3);
+    }
+    .icon svg { width: 22px; height: 22px; }
+    .card h2 { margin: 0; font-size: 20px; letter-spacing: -0.01em; }
+    .card-head small { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
+
+    /* ---------- Formulário ---------- */
+    label { display: block; margin: 0 0 6px; font-size: 13px; font-weight: 600; color: #26375a; }
+    .field { margin-bottom: 16px; }
+    input, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font: inherit; font-size: 15px;
+      color: var(--ink);
+      background: var(--glass-strong);
+      border: 1px solid rgba(147, 197, 253, 0.55);
+      border-radius: 14px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+    }
+    textarea { resize: vertical; min-height: 96px; }
+    input::placeholder, textarea::placeholder { color: #94a3bd; }
+    input:focus, textarea:focus {
+      border-color: var(--blue-500);
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, .18);
+    }
+
+    /* ---------- Botões ---------- */
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+    .btn {
+      flex: 1 1 140px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 18px;
+      font: inherit; font-size: 14px; font-weight: 600;
+      border-radius: 14px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform .15s, box-shadow .2s, background .2s, opacity .2s;
+    }
+    .btn:active { transform: scale(.98); }
+    .btn:focus-visible { outline: 3px solid rgba(59,130,246,.45); outline-offset: 2px; }
+    .btn[disabled] { opacity: .65; cursor: progress; }
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+      box-shadow: 0 8px 20px rgba(37, 99, 235, .3);
+    }
+    .btn-primary:hover:not([disabled]) { box-shadow: 0 12px 26px rgba(37, 99, 235, .42); transform: translateY(-1px); }
+    .btn-ghost {
+      color: var(--blue-700);
+      background: rgba(255, 255, 255, .6);
+      border-color: rgba(147, 197, 253, .8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .btn-ghost:hover:not([disabled]) { background: #fff; transform: translateY(-1px); }
+    .spin {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid currentColor; border-right-color: transparent;
+      animation: giro .7s linear infinite;
+    }
+    @keyframes giro { to { transform: rotate(360deg); } }
+
+    /* ---------- Resultado do consumo ---------- */
+    .resultado { margin-top: 22px; }
+    .resumo { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .vazio {
+      padding: 28px 16px;
+      text-align: center;
+      font-size: 14px; color: var(--muted);
+      background: rgba(255, 255, 255, .45);
+      border: 1px dashed rgba(147, 197, 253, .9);
+      border-radius: 16px;
+    }
+    .msg {
+      margin-bottom: 10px;
+      padding: 14px 16px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--blue-500);
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, .08);
+      animation: entrar .35s ease both;
+    }
+    @keyframes entrar { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .msg-topo {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px;
+      margin-bottom: 6px;
+    }
+    .tag {
+      padding: 3px 10px;
+      font-size: 12px; font-weight: 600;
+      color: var(--blue-700);
+      background: var(--blue-100);
+      border-radius: 999px;
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .msg-meta { font-size: 12px; color: var(--muted); }
+    .msg-texto { margin: 0; font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .aviso {
+      margin-top: 10px; padding: 12px 14px;
+      font-size: 13px; color: #92400e;
+      background: rgba(254, 243, 199, .8);
+      border: 1px solid rgba(251, 191, 36, .5);
+      border-radius: 14px;
+    }
+
+    /* ---------- Notificações (toasts) ---------- */
+    #toasts {
+      position: fixed; z-index: 10;
+      top: 18px; right: 18px; left: 18px;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      max-width: 380px;
+      padding: 13px 18px;
+      font-size: 14px; font-weight: 600;
+      color: var(--ink);
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--blue-500);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      animation: entrar .3s ease both;
+    }
+    .toast.erro { border-left-color: #ef4444; }
+
+
+    html { scroll-behavior: smooth; }
+
+    /* ---------- Navegação ---------- */
+    .nav { display: inline-flex; gap: 6px; margin-top: 22px; padding: 5px;
+      background: var(--glass); border: 1px solid var(--border); border-radius: 999px;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--shadow); }
+    .nav a { padding: 8px 18px; font-size: 14px; font-weight: 600; text-decoration: none;
+      color: var(--blue-700); border-radius: 999px; transition: background .2s, color .2s; }
+    .nav a:hover { background: #fff; }
+    .nav a.ativo { color: #fff; background: linear-gradient(135deg, var(--blue-500), var(--blue-700)); }
+
+    /* ---------- Guia passo a passo ---------- */
+    #guia { margin-top: 56px; scroll-margin-top: 20px; }
+    .guia-titulo { text-align: center; margin-bottom: 26px; }
+    .guia-titulo h2 { margin: 12px 0 6px; font-size: clamp(24px, 4vw, 32px); letter-spacing: -0.02em; }
+    .guia-titulo p { margin: 0; color: var(--muted); }
+    .bloco { margin-bottom: 24px; }
+    .bloco > h3 { margin: 0 0 4px; font-size: 19px; letter-spacing: -0.01em; }
+    .bloco > .sub { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+    .passo { display: grid; grid-template-columns: 38px 1fr; gap: 14px; padding: 16px 0;
+      border-top: 1px solid rgba(147, 197, 253, .45); }
+    .passo:first-of-type { border-top: 0; padding-top: 0; }
+    .num { width: 38px; height: 38px; display: grid; place-items: center; font-weight: 700; color: #fff;
+      border-radius: 12px; background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+      box-shadow: 0 6px 14px rgba(37, 99, 235, .28); }
+    .passo h4 { margin: 6px 0 6px; font-size: 16px; }
+    .passo p, .passo li { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: #2b3b5c; }
+    .passo ul { margin: 0 0 8px; padding-left: 20px; }
+    .passo a { color: var(--blue-600); font-weight: 600; }
+    .passo b { color: var(--ink); }
+
+    .code { position: relative; margin: 8px 0 10px; background: rgba(15, 31, 61, .92); border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, .15); }
+    .code code { display: block; padding: 14px 84px 14px 16px; overflow-x: auto; white-space: pre;
+      font-family: Consolas, "Cascadia Code", "SF Mono", monospace; font-size: 13px; line-height: 1.6; color: #dbeafe; }
+    .copiar { position: absolute; top: 8px; right: 8px; padding: 5px 12px; font: inherit; font-size: 12px; font-weight: 600;
+      color: #dbeafe; cursor: pointer; background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 9px; transition: background .2s; }
+    .copiar:hover { background: rgba(255, 255, 255, .22); }
+    .copiar.ok { background: rgba(59, 130, 246, .65); }
+    .dica { margin: 8px 0 10px; padding: 11px 14px; font-size: 13.5px; line-height: 1.55; color: #1e3a8a;
+      background: rgba(219, 234, 254, .7); border: 1px solid rgba(147, 197, 253, .7); border-radius: 14px; }
+    .dica.alerta { color: #92400e; background: rgba(254, 243, 199, .8); border-color: rgba(251, 191, 36, .5); }
+    kbd, .chip { padding: 2px 8px; font-family: Consolas, monospace; font-size: 12.5px; color: var(--blue-700);
+      background: var(--blue-100); border-radius: 7px; }
+
+    .erros { display: grid; gap: 10px; }
+    .erro-item { display: grid; grid-template-columns: 170px 1fr; gap: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.55;
+      background: var(--glass-strong); border: 1px solid var(--border); border-radius: 14px; color: #2b3b5c; }
+    .erro-item strong { color: var(--ink); font-size: 13.5px; }
+    @media (max-width: 640px) { .erro-item { grid-template-columns: 1fr; gap: 4px; } .nav a { padding: 8px 12px; } }
+
+    footer { margin-top: 32px; text-align: center; font-size: 12px; color: var(--muted); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toasts" aria-live="polite"></div>
+
+  <main class="page">
+    <header>
+      <span class="pill"><i></i> Oracle Cloud Queue</span>
+      <h1>Fila de <span>mensagens</span></h1>
+      <p>Publique mensagens na fila da OCI e consuma quando quiser.</p>
+      <nav class="nav" aria-label="Seções">
+        <a href="#app" class="ativo" id="nav-app">Aplicativo</a>
+        <a href="#guia" id="nav-guia">Passo a passo</a>
+      </nav>
+    </header>
+
+    <div class="grid" id="app">
+      <!-- ================= PRODUTOR ================= -->
+      <section class="card">
+        <div class="card-head">
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+          </div>
+          <div>
+            <h2>Produtor</h2>
+            <small>Envia mensagens para a fila</small>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="txt-emails">E-mail</label>
+          <input type="text" id="txt-emails" placeholder="destino@exemplo.com" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="txt-mensagem">Mensagem</label>
+          <textarea id="txt-mensagem" placeholder="Escreva o texto da mensagem...">texto teste</textarea>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" onclick="publicar('/publicar', this)">Publicar</button>
+          <button type="button" class="btn btn-ghost" onclick="publicar('/publicarCanal', this)">Publicar – canal</button>
+        </div>
+      </section>
+
+      <!-- ================= CONSUMIDOR ================= -->
+      <section class="card">
+        <div class="card-head">
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+          </div>
+          <div>
+            <h2>Consumidor</h2>
+            <small>Lê e remove mensagens da fila</small>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" onclick="consumir('/consumir', this)">Consumir</button>
+          <button type="button" class="btn btn-ghost" onclick="consumir('/consumirCanal', this)">Consumir – canal</button>
+        </div>
+
+        <div id="mensagens" class="resultado" aria-live="polite">
+          <div class="vazio">As mensagens consumidas aparecem aqui.</div>
+        </div>
+      </section>
+    </div>
+
+
+    <!-- ================= PASSO A PASSO ================= -->
+    <section id="guia">
+      <div class="guia-titulo">
+        <span class="pill"><i></i> Guia</span>
+        <h2>Passo a passo</h2>
+        <p>Como rodar o projeto e como usar cada botão. Em Python não existe compilação: basta executar o <span class="chip">app.py</span>.</p>
+      </div>
+
+      <!-- ---------- RODAR ---------- -->
+      <div class="card bloco">
+        <h3>1. Como rodar o projeto</h3>
+        <p class="sub">Faça uma vez; depois é só executar o app.</p>
+
+        <div class="passo">
+          <div class="num">1</div>
+          <div>
+            <h4>Instalar o Python 3.12</h4>
+            <p>Baixe em <a href="https://www.python.org/downloads/windows/" target="_blank" rel="noopener">python.org</a> e, no instalador, marque <b>Add python.exe to PATH</b>. Prefira o 3.12: versões muito novas (3.15) não têm pacotes prontos para o SDK da OCI e dão erro de compilação.</p>
+            <div class="code"><code>py -3.12 --version</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+            <p>Deve aparecer <span class="chip">Python 3.12.x</span>.</p>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">2</div>
+          <div>
+            <h4>Abrir o terminal na pasta do projeto</h4>
+            <p>No PowerShell, entre na pasta onde estão o <span class="chip">app.py</span> e a pasta <span class="chip">templates</span>:</p>
+            <div class="code"><code>cd "C:\Users\SEU-USUARIO\Desktop\filaOCI"</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">3</div>
+          <div>
+            <h4>Instalar as dependências</h4>
+            <div class="code"><code>py -3.12 -m pip install -r requirements.txt</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+            <p>Instala o Flask, o SDK da OCI e o requests.</p>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">4</div>
+          <div>
+            <h4>Gerar a chave de API na OCI</h4>
+            <ul>
+              <li>No console da OCI, clique no seu perfil (canto superior direito) e abra <b>My profile</b>.</li>
+              <li>Vá em <b>API keys</b> &rarr; <b>Add API key</b> &rarr; deixe <b>Generate API key pair</b>.</li>
+              <li>Clique em <b>Download private key</b> (o <span class="chip">.pem</span>) e depois em <b>Add</b>.</li>
+              <li>Copie o texto da janela <b>Configuration file preview</b>.</li>
+            </ul>
+            <div class="dica alerta">O <b>.pem</b> só pode ser baixado nessa hora. Guarde-o bem e não envie para ninguém nem para o GitHub.</div>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">5</div>
+          <div>
+            <h4>Criar a pasta <span class="chip">.oci</span> do projeto</h4>
+            <p>Dentro do projeto, crie a pasta <span class="chip">.oci</span> com o arquivo <span class="chip">config</span> (sem extensão, é o texto copiado) e o seu <span class="chip">chave.pem</span>. No <span class="chip">config</span>, deixe o <b>key_file</b> com o caminho real do .pem:</p>
+            <div class="code"><code>[DEFAULT]
+user=ocid1.user.oc1..xxxx
+fingerprint=xx:xx:xx:xx...
+tenancy=ocid1.tenancy.oc1..xxxx
+region=us-phoenix-1
+key_file=C:/Users/SEU-USUARIO/Desktop/filaOCI/.oci/chave.pem</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+            <div class="dica">Use barras normais <b>/</b> no caminho e apague o texto <b>&lt;path to your private keyfile&gt;</b> e o <b># TODO</b>.</div>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">6</div>
+          <div>
+            <h4>Criar o arquivo <span class="chip">.env</span></h4>
+            <p>Na pasta do projeto, crie o <span class="chip">.env</span>. O OCID e o endpoint estão na página de detalhes da sua fila, em <b>Serviços ao Desenvolvedor &rarr; Filas</b>.</p>
+            <div class="code"><code>OCI_CONFIG_FILE=C:/Users/SEU-USUARIO/Desktop/filaOCI/.oci/config
+OCI_QUEUE_ID=ocid1.queue.oc1.phx.xxxxxxxx
+OCI_QUEUE_ENDPOINT=https://cell-1.queue.messaging.us-phoenix-1.oci.oraclecloud.com
+OCI_QUEUE_CHANNEL=canal1</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+            <div class="dica">A região do <b>config</b> e a do endpoint da fila precisam ser a mesma. Não precisa configurar e-mail: o envio vem desligado.</div>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">7</div>
+          <div>
+            <h4>Executar o app</h4>
+            <div class="code"><code>py -3.12 app.py</code><button class="copiar" onclick="copiar(this)">Copiar</button></div>
+            <p>Quando aparecer <span class="chip">Running on http://127.0.0.1:3000</span>, abra <a href="http://localhost:3000" target="_blank" rel="noopener">localhost:3000</a>. Para parar, use <kbd>Ctrl</kbd> + <kbd>C</kbd> no terminal.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- USAR ---------- -->
+      <div class="card bloco">
+        <h3>2. Como usar o aplicativo</h3>
+        <p class="sub">Publicar manda para a fila na OCI; consumir lê, mostra na tela e remove da fila.</p>
+
+        <div class="passo">
+          <div class="num">1</div>
+          <div>
+            <h4>Publicar uma mensagem</h4>
+            <p>No card <b>Produtor</b>, preencha o e-mail (pode ser qualquer texto, nada é enviado) e a mensagem. Clique em <b>Publicar</b>. Uma notificação confirma que foi inserida na fila.</p>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">2</div>
+          <div>
+            <h4>Conferir na OCI (opcional)</h4>
+            <p>No console, abra a sua fila e use a opção de <b>sondar</b> mensagens. A mensagem publicada deve aparecer lá.</p>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">3</div>
+          <div>
+            <h4>Consumir</h4>
+            <p>No card <b>Consumidor</b>, clique em <b>Consumir</b>. As mensagens da fila aparecem na tela e são apagadas da OCI. Mensagens simples criadas pelo botão <b>Enviar mensagem</b> do console também funcionam.</p>
+            <div class="dica alerta">Se a fila tiver retenção de 1 minuto, mensagens não consumidas nesse tempo são excluídas pela própria OCI.</div>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">4</div>
+          <div>
+            <h4>Usar canais</h4>
+            <p><b>Publicar &ndash; canal</b> marca a mensagem com o canal definido em <span class="chip">OCI_QUEUE_CHANNEL</span> (padrão <span class="chip">canal1</span>). <b>Consumir &ndash; canal</b> lê só as mensagens desse canal, uma por vez. Os botões sem &ldquo;canal&rdquo; trabalham com a fila em geral.</p>
+          </div>
+        </div>
+
+        <div class="passo">
+          <div class="num">5</div>
+          <div>
+            <h4>Se o processamento falhar</h4>
+            <p>A mensagem não é apagada: ela volta para a fila depois de alguns segundos (aviso amarelo na tela). Ao passar do <b>máximo de tentativas de entrega</b> da fila, a OCI a envia para a fila de mensagens inativas (DLQ).</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- ERROS ---------- -->
+      <div class="card bloco">
+        <h3>3. Problemas comuns</h3>
+        <p class="sub">Os erros aparecem no terminal onde o app está rodando.</p>
+        <div class="erros">
+          <div class="erro-item"><strong>python / py não reconhecido</strong><span>Python não instalado ou sem &ldquo;Add to PATH&rdquo;. Reinstale marcando a opção e abra um terminal novo.</span></div>
+          <div class="erro-item"><strong>Erro ao compilar crc32c</strong><span>Versão nova demais do Python. Instale o 3.12 e use <span class="chip">py -3.12</span> nos comandos.</span></div>
+          <div class="erro-item"><strong>Could not find config file</strong><span>Caminho do <span class="chip">OCI_CONFIG_FILE</span> errado ou arquivo chamado <span class="chip">config.txt</span>. Use o caminho completo no <span class="chip">.env</span>.</span></div>
+          <div class="erro-item"><strong>Variável obrigatória não definida</strong><span>O <span class="chip">.env</span> está fora da pasta do projeto ou sem <span class="chip">OCI_QUEUE_ID</span> / <span class="chip">OCI_QUEUE_ENDPOINT</span>.</span></div>
+          <div class="erro-item"><strong>HTTP 401</strong><span>Fingerprint, OCID ou caminho do <span class="chip">key_file</span> errados no <span class="chip">config</span>.</span></div>
+          <div class="erro-item"><strong>HTTP 403 / 404</strong><span>OCID da fila errado, endpoint de outra região ou usuário sem permissão na fila.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>Mensagens consumidas são removidas da fila na OCI.</footer>
+  </main>
+
+  <script>
+    // ---------- utilitários de interface ----------
+    const el = (tag, className, texto) => {
+      const e = document.createElement(tag);
+      if (className) e.className = className;
+      if (texto !== undefined) e.textContent = texto;  // textContent: nunca executa HTML vindo da fila
+      return e;
+    };
+
+    const toast = (texto, erro = false) => {
+      const t = el("div", "toast" + (erro ? " erro" : ""), texto);
+      document.getElementById("toasts").append(t);
+      setTimeout(() => t.remove(), 4000);
+    };
+
+    // Desabilita o botão e mostra um spinner enquanto a requisição roda
+    const carregando = (botao, ligado) => {
+      if (!botao) return;
+      botao.disabled = ligado;
+      const antigo = botao.querySelector(".spin");
+      if (antigo) antigo.remove();
+      if (ligado) botao.prepend(el("span", "spin"));
+    };
+
+    // ---------- produtor ----------
+    const publicar = (rota, botao) => {
+      const email = document.getElementById("txt-emails").value.trim();
+      const msg = document.getElementById("txt-mensagem").value.trim();
+      if (!email || !msg) { toast("Informe todos os dados.", true); return; }
+
+      carregando(botao, true);
+      fetch(rota, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, msg })
+      })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => toast(d.mensagem || d.erro || "Pronto.", !ok))
+      .catch(() => toast("Erro ao enviar.", true))
+      .finally(() => carregando(botao, false));
+    };
+
+    // ---------- consumidor ----------
+    const consumir = (rota, botao) => {
+      const area = document.getElementById("mensagens");
+      carregando(botao, true);
+
+      fetch(rota)
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok || d.erro) { toast(d.erro || "Erro ao consumir.", true); return; }
+
+        if (d.recebidas === 0) {
+          area.replaceChildren(el("div", "vazio", "Nenhuma mensagem na fila."));
+          return;
+        }
+
+        const itens = [el("p", "resumo",
+          `${d.recebidas} recebida(s) · ${d.processadas.length} removida(s) da fila`)];
+
+        d.mensagens.forEach(m => {
+          const card = el("div", "msg");
+          const topo = el("div", "msg-topo");
+          topo.append(
+            el("span", "tag", m.email ? `Para: ${m.email}` : "Mensagem da fila"),
+            el("span", "msg-meta", `entrega nº ${m.entrega}`)
+          );
+          card.append(topo, el("p", "msg-texto", m.msg));
+          itens.push(card);
+        });
+
+        if (d.devolvidas.length) {
+          itens.push(el("div", "aviso",
+            `${d.devolvidas.length} mensagem(ns) falharam e voltarão à fila.`));
+        }
+        area.replaceChildren(...itens);
+      })
+      .catch(() => toast("Erro ao consumir.", true))
+      .finally(() => carregando(botao, false));
+    };
+
+    // ---------- guia: botão "Copiar" ----------
+    const copiar = (botao) => {
+      const texto = botao.parentElement.querySelector("code").textContent;
+      const feito = () => {
+        botao.textContent = "Copiado!"; botao.classList.add("ok");
+        setTimeout(() => { botao.textContent = "Copiar"; botao.classList.remove("ok"); }, 1600);
+      };
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texto).then(feito).catch(() => {});
+      } else {  // fallback para contextos sem a API moderna
+        const t = document.createElement("textarea");
+        t.value = texto; document.body.append(t); t.select();
+        try { document.execCommand("copy"); feito(); } catch (e) {}
+        t.remove();
+      }
+    };
+
+    // ---------- menu: destaca a seção visível ----------
+    const secoes = [["app", "nav-app"], ["guia", "nav-guia"]];
+    const marcarMenu = () => {
+      const meio = window.scrollY + window.innerHeight * 0.35;
+      let atual = "nav-app";
+      secoes.forEach(([sec, nav]) => {
+        if (document.getElementById(sec).offsetTop <= meio) atual = nav;
+      });
+      secoes.forEach(([, nav]) => document.getElementById(nav).classList.toggle("ativo", nav === atual));
+    };
+    window.addEventListener("scroll", marcarMenu, { passive: true });
+    marcarMenu();
+  </script>
+</body>
+</html>

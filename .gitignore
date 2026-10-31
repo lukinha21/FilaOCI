@@ -1,0 +1,10 @@
+# Credenciais: NUNCA subir
+.oci/
+*.pem
+.env
+
+# Python e editor
+__pycache__/
+*.pyc
+.venv/
+.vscode/
